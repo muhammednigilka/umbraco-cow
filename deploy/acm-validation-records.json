@@ -1,0 +1,23 @@
+{
+  "Comment": "ACM validation CNAMEs for moofamily CMS",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_f1b726d7e8401b648935f5797c99eeed.cms.cowparadisegames.com.",
+        "Type": "CNAME",
+        "TTL": 60,
+        "ResourceRecords": [{ "Value": "_19957d0725928de305c293f12777cade.jkddzztszm.acm-validations.aws." }]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_27c502b70e12e322250dc40113b7bcb2.cowparadisegames.com.",
+        "Type": "CNAME",
+        "TTL": 60,
+        "ResourceRecords": [{ "Value": "_22418700f0cc72290de1438461fa2b3e.jkddzztszm.acm-validations.aws." }]
+      }
+    }
+  ]
+}

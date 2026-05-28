@@ -1,0 +1,80 @@
+{
+  "ServiceName": "moofamily-umbraco",
+  "SourceConfiguration": {
+    "AutoDeploymentsEnabled": true,
+    "ImageRepository": {
+      "ImageIdentifier": "423623846645.dkr.ecr.us-east-1.amazonaws.com/moofamily/umbraco:latest",
+      "ImageRepositoryType": "ECR",
+      "ImageConfiguration": {
+        "Port": "5000",
+        "RuntimeEnvironmentVariables": {
+          "ASPNETCORE_ENVIRONMENT": "Production",
+          "ASPNETCORE_URLS": "http://+:5000",
+          "Serilog__WriteTo__0__Name": "Console",
+          "Serilog__MinimumLevel__Default": "Information",
+          "ConnectionStrings__umbracoDbDSN_ProviderName": "Microsoft.Data.SqlClient",
+          "Umbraco__CMS__Unattended__InstallUnattended": "true",
+          "Umbraco__CMS__Unattended__UnattendedUserName": "Admin",
+          "Umbraco__CMS__Unattended__UnattendedUserEmail": "muhammednigilka@gmail.com",
+          "uSync__Sets__Default__HandlerDefaults__ImportAtStartup": "All",
+          "uSync__Sets__Default__HandlerDefaults__ExportAtStartup": "None",
+          "uSync__Settings__ImportOnFirstBoot": "true",
+          "Umbraco__Storage__AWSS3__Media__BucketName": "cowparadise-cdn-assets-423623846645-us-east-1-an",
+          "Umbraco__Storage__AWSS3__Media__Region": "us-east-1",
+          "Umbraco__Storage__AWSS3__Media__BucketHostName": "cowparadise-cdn-assets-423623846645-us-east-1-an.s3.us-east-1.amazonaws.com",
+          "Umbraco__Storage__AWSS3__Media__MediaBucketPrefix": "media",
+          "Umbraco__Storage__AWSS3__Media__CacheBucketPrefix": "cache",
+          "Cors__AllowedOrigins": "https://master.d3boy6qi81n9oz.amplifyapp.com,https://cowparadisegames.com,https://www.cowparadisegames.com",
+          "Umbraco__CMS__WebRouting__UmbracoApplicationUrl": "https://3b2umvhdys.us-east-1.awsapprunner.com",
+          "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+          "Umbraco__CMS__DeliveryApi__PublicAccess": "false",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__0": "home",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__1": "standardPage",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__2": "settings",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__3": "game",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__4": "story",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__5": "newsArticle",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__6": "character",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__7": "teamMember",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__8": "short",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__9": "gamesFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__10": "storiesFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__11": "newsFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__12": "charactersFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__13": "teamFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__14": "shortsFolder"
+        },
+        "RuntimeEnvironmentSecrets": {
+          "ConnectionStrings__umbracoDbDSN": "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/connection-string-uGrTa1",
+          "Umbraco__CMS__DeliveryApi__ApiKey": "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/delivery-api-key-ntYxOW",
+          "Umbraco__CMS__Unattended__UnattendedUserPassword": "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/admin-seed-password-cwAnCy"
+        }
+      }
+    },
+    "AuthenticationConfiguration": {
+      "AccessRoleArn": "arn:aws:iam::423623846645:role/AppRunnerECRAccessRole-moofamily"
+    }
+  },
+  "InstanceConfiguration": {
+    "Cpu": "1024",
+    "Memory": "2048",
+    "InstanceRoleArn": "arn:aws:iam::423623846645:role/moofamily-apprunner-task"
+  },
+  "HealthCheckConfiguration": {
+    "Protocol": "HTTP",
+    "Path": "/umbraco",
+    "Interval": 20,
+    "Timeout": 10,
+    "HealthyThreshold": 1,
+    "UnhealthyThreshold": 5
+  },
+  "NetworkConfiguration": {
+    "EgressConfiguration": {
+      "EgressType": "VPC",
+      "VpcConnectorArn": "arn:aws:apprunner:us-east-1:423623846645:vpcconnector/moofamily-connector/1/72fa9e35880942f788656fdc290038e4"
+    }
+  },
+  "Tags": [
+    { "Key": "Project", "Value": "moofamily" }
+  ]
+}

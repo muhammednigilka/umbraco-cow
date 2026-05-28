@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadSecrets",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/connection-string*",
+        "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/delivery-api-key*",
+        "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/admin-seed-password*"
+      ]
+    },
+    {
+      "Sid": "MediaBucketRW",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket",
+        "s3:GetObjectAcl", "s3:PutObjectAcl", "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::cowparadise-cdn-assets-423623846645-us-east-1-an",
+        "arn:aws:s3:::cowparadise-cdn-assets-423623846645-us-east-1-an/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents",
+        "logs:DescribeLogStreams", "logs:DescribeLogGroups"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:423623846645:log-group:/aws/apprunner/moofamily-umbraco/*"
+    }
+  ]
+}
