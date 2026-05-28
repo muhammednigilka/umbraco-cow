@@ -52,12 +52,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Trigger App Runner deployment
+      - name: Wait for App Runner auto-deployment to finish
         run: |
-          aws apprunner start-deployment --service-arn "${{ env.APP_RUNNER_SERVICE_ARN }}" --region "${{ env.AWS_REGION }}"
-
-      - name: Wait for App Runner to finish deploying
-        run: |
+          # Give App Runner a moment to react to the ECR push
+          sleep 15
           for i in $(seq 1 30); do
             S=$(aws apprunner describe-service --service-arn "${{ env.APP_RUNNER_SERVICE_ARN }}" --region "${{ env.AWS_REGION }}" --query 'Service.Status' --output text)
             echo "[t+$((i*20))s] $S"
