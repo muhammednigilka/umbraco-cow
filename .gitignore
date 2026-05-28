@@ -1,0 +1,28 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+
+# Umbraco
+src/MooFamily.Cms.Web/umbraco/Data/
+src/MooFamily.Cms.Web/umbraco/Logs/
+src/MooFamily.Cms.Web/umbraco/mediafiles/
+src/MooFamily.Cms.Web/umbraco/models/
+src/MooFamily.Cms.Web/wwwroot/media/
+src/MooFamily.Cms.Web/appsettings.Local.json
+
+# Tooling
+.vs/
+.idea/
+.vscode/launch.json
+
+# Secrets
+.env
+.env.local
+**/secrets.json
+
+# Docker
+.dockerignore.local
+
+# Stray temp files
+UsersMuhammedNigilAppDataLocalTempcow_home.html

@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Id": "CowParadiseAssetsPolicy",
+  "Statement": [
+    {
+      "Sid": "AllowPublicRead",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::cowparadise-cdn-assets-423623846645-us-east-1-an/*"
+    },
+    {
+      "Sid": "AllowCloudFrontServicePrincipal",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudfront.amazonaws.com" },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::cowparadise-cdn-assets-423623846645-us-east-1-an/*",
+      "Condition": {
+        "ArnLike": {
+          "AWS:SourceArn": "arn:aws:cloudfront::423623846645:distribution/EQC6PDRS7IRAH"
+        }
+      }
+    }
+  ]
+}

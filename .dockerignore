@@ -1,0 +1,36 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+**/*.suo
+
+# Umbraco runtime data (must not be baked into the image)
+src/MooFamily.Cms.Web/umbraco/Data/
+src/MooFamily.Cms.Web/umbraco/Logs/
+src/MooFamily.Cms.Web/umbraco/mediafiles/
+src/MooFamily.Cms.Web/umbraco/models/
+src/MooFamily.Cms.Web/wwwroot/media/
+
+# Local-only config
+src/MooFamily.Cms.Web/appsettings.Local.json
+
+# Secrets and env
+.env
+.env.local
+**/secrets.json
+
+# Git + tooling
+.git/
+.github/
+.claude/
+.dockerignore.local
+
+# Planning docs (not needed at runtime)
+*.md
+deploy/
+scripts/
+
+# Stray temp
+UsersMuhammedNigilAppDataLocalTempcow_home.html

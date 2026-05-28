@@ -1,0 +1,25 @@
+services:
+  cms:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: moofamily-umbraco:local
+    ports:
+      - "5000:5000"
+    environment:
+      # Override to Development so SQLite bootstrap kicks in (no SQL Server locally)
+      ASPNETCORE_ENVIRONMENT: Development
+      # Disable S3 media storage for local smoke test (package would otherwise probe S3 on boot)
+      Umbraco__Storage__AWSS3__Media__BucketName: ""
+      # Open Delivery API without key for the local test
+      Umbraco__CMS__DeliveryApi__PublicAccess: "true"
+    volumes:
+      # Persist SQLite + media so restarts retain state
+      - umbraco-data:/app/umbraco/Data
+      - umbraco-logs:/app/umbraco/Logs
+      - umbraco-media:/app/umbraco/mediafiles
+
+volumes:
+  umbraco-data:
+  umbraco-logs:
+  umbraco-media:

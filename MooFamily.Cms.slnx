@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MooFamily.Cms.Web/MooFamily.Cms.Web.csproj" />
+  </Folder>
+</Solution>
