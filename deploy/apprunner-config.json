@@ -16,6 +16,7 @@
           "Umbraco__CMS__Unattended__InstallUnattended": "true",
           "Umbraco__CMS__Unattended__UnattendedUserName": "Admin",
           "Umbraco__CMS__Unattended__UnattendedUserEmail": "muhammednigilka@gmail.com",
+          "uSync__Settings__ImportAtStartup": "All",
           "uSync__Sets__Default__HandlerDefaults__ImportAtStartup": "All",
           "uSync__Sets__Default__HandlerDefaults__ExportAtStartup": "None",
           "uSync__Settings__ImportOnFirstBoot": "true",
