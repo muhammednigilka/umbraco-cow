@@ -22,7 +22,6 @@
           "uSync__Settings__ImportOnFirstBoot": "true",
           "Umbraco__Storage__AWSS3__Media__BucketName": "cowparadise-cdn-assets-423623846645-us-east-1-an",
           "Umbraco__Storage__AWSS3__Media__Region": "us-east-1",
-          "Umbraco__Storage__AWSS3__Media__BucketHostName": "cowparadise-cdn-assets-423623846645-us-east-1-an.s3.us-east-1.amazonaws.com",
           "Umbraco__Storage__AWSS3__Media__MediaBucketPrefix": "media",
           "Umbraco__Storage__AWSS3__Media__CacheBucketPrefix": "cache",
           "Cors__AllowedOrigins": "https://master.d3boy6qi81n9oz.amplifyapp.com,https://cowparadisegames.com,https://www.cowparadisegames.com",
