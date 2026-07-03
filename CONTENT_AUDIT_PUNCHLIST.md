@@ -62,3 +62,48 @@ needs the team** (backoffice, assets, React, decisions).
 - **Moo Rash vs Moo Rush** — the game's cover asset is named `MooRush.webp`, suggesting the intended name is "Moo Rush". Left **as-is** ("Moo Rash") pending your call (renaming changes the public URL).
 - **Footer social handles** — two conflicting sets remain (`/cowparadise` vs `/cowparadisegames`). Both kept per request; pick the correct one when ready.
 - **Contact email** — the new Contact page uses `hello@cowparadisegames.com`. Confirm or replace with the real address.
+
+---
+
+## Round 2 — Characters / educational-games / game rules (CMS enablement + React handoff)
+
+**Why:** the live `/characters`, character detail pages (e.g. `/characters/daddy-moo`), and the
+educational-game detail pages (`/moo-family/games/<slug>`) are **hardcoded in the React front-end** —
+they 404 on the CMS API. The React bundle also already reads a set of character fields from the CMS
+and falls back to hardcoded data because the doctype lacked them. This round makes the CMS the source
+of truth by adding those fields and rebuilding content to match the live data (extracted verbatim
+from the bundle). **Most of it is enablement** — it renders on the live site only after the React
+team switches those pages from hardcoded → CMS.
+
+### Done in the CMS (this round)
+- **`character` doctype** — added 6 fields React already reads: `characterCategory` (Moo Family /
+  Cow Paradise), `characterTraits` (comma-separated), `characterPersonality`, `characterTakeaway`
+  (the "Children learn that…" line), `characterLearnIntro`, and `characterLearnPoints` (a BlockList
+  of accordion items = `accordionTitle` + `accordionContent`).
+- **Characters rebuilt to the live 12** (was 6): Moo Family — `little-jack, daddy-moo, mommy-moo,
+  milo, bella, daisy`; Cow Paradise — `rocky, coco, zara, pepe, luna, toby`. Node names match the
+  live slugs, so `/characters/daddy-moo` etc. are now **real CMS nodes**. All fields populated from
+  the live data. `characterImage` left empty (see assets note).
+- **`educationalGameCard` doctype** — added `eduGameCardCategory` and `eduGameCardSlug`; tagged all 8
+  cards (one per category: Alphabet/Words/Spelling/Reading/Writing/Numbers/Brain Games/Creativity).
+- **Game rules** — added a **"How to Play"** section (id `how-to-play`) into each of the 12
+  `game.blocks` with per-genre rules. This one **renders now** (React already renders `game.blocks`).
+
+### React work required to make the rest render (hand-off)
+1. **Characters page + detail:** switch `/characters` and `/characters/<slug>` from the hardcoded
+   array to the CMS `character` nodes (match by node slug/id, CMS-primary). Read the new fields:
+   `characterCategory`, `characterTraits` (string → split on comma), `characterPersonality`,
+   `characterTakeaway`, `characterLearnIntro`, and `characterLearnPoints.items[].content.properties`
+   (`accordionTitle` → title, `accordionContent` → body). Wire the "All / Moo Family / Cow Paradise"
+   chips to `characterCategory`.
+2. **Educational games:** wire the category chips on `/moo-family` to `eduGameCardCategory`, and add
+   the `/moo-family/games/<slug>` detail route reading `eduGameCardSlug` (detail content model TBD).
+3. **Character "Adventures" carousel** (related games/stories per character) needs a
+   character→games/stories relationship — not modelled yet; add a picker/relation field if wanted.
+
+### Notes / limitations
+- **Character images:** the live art are React static assets (`/images/character_*.png`), not CMS
+  media, so `characterImage` stays empty until uploaded in the backoffice (or React keeps its own
+  `/images/*` paths). Same for edu-game icons.
+- The old CMS characters (Moo, Ellie, Lulu, Tina) were repurposed onto the new nodes by reusing their
+  keys, so no orphan nodes remain; the old `/characters/{moo,ellie,lulu,tina}` slugs no longer exist.
