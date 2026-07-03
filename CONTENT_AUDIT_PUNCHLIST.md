@@ -107,3 +107,60 @@ team switches those pages from hardcoded → CMS.
   `/images/*` paths). Same for edu-game icons.
 - The old CMS characters (Moo, Ellie, Lulu, Tina) were repurposed onto the new nodes by reusing their
   keys, so no orphan nodes remain; the old `/characters/{moo,ellie,lulu,tina}` slugs no longer exist.
+
+---
+
+## Round 3 — Educational games as real pages + governed categories + character relations + first-class rules
+
+**Why:** Round 2 left the educational games as hardcoded/placeholder *cards* with no CMS route
+(`/moo-family/games/<slug>` 404'd), the category fields as free text (so chip filtering couldn't
+bind), no character→games/stories relationship, and game rules buried inside `game.blocks`. This
+round makes those real in the CMS.
+
+### Done in the CMS (this round)
+- **New `educationalGame` doctype** (routable, IsElement=false) + **`educationalGamesFolder`** container,
+  nested under the Moo Family node so nodes route at **`/moo-family/games/<slug>`**. Fields:
+  `eduGameTitle`, `eduGameDescription`, `eduGameCategory` (governed dropdown), `eduGameCoverImage`,
+  `eduGameIcon`, `eduGameBackgroundColor`, `eduGameHowToPlay` (RichText), `eduGameAgeRange`,
+  `eduGameSkills`, `eduGamePlayUrl`, `blocks` (shared page-block palette). Slug = node URL segment.
+- **8 educationalGame nodes seeded** under `/moo-family/games/` (Alphabet Adventure, Word Sprint,
+  Number Garden, Brain Boost, Spelling Bee, Story Explorer, Doodle & Write, Color Studio). *These are
+  placeholders carried over from the old cards — replace with the real catalog (e.g. `alphabet-adventures`,
+  `abc-puzzles`) when provided.* Images left empty (backoffice upload).
+- **Moo Family page** — the `educationalGamesSection` block was replaced by an **`entityGridSection`**
+  (auto mode, `entityGridEntityType=["educationalGame"]`, 8 category chips) so the listing auto-sources
+  the new nodes. Chip `filterChipValue`s are now the exact Title-Case category labels.
+- **Governed category dropdowns** — new `Character - Category - Dropdown` (Moo Family / Cow Paradise)
+  and `Educational Game - Category - Dropdown` (Alphabet/Words/Spelling/Reading/Writing/Numbers/Brain
+  Games/Creativity). `character.characterCategory`, `educationalGameCard.eduGameCardCategory`, and
+  `educationalGame.eduGameCategory` now use them; the 12 character values were rewritten to array form
+  (`["Moo Family"]` / `["Cow Paradise"]`). `educationalGame` added to `EntityTypeDropdown`.
+- **Character → related content** — added `characterRelatedGames` (Game picker) and
+  `characterRelatedStories` (Story picker) MNTP fields on `character` (empty by default; populate to
+  drive the per-character "Adventures" carousel).
+- **Game rules promoted** — new first-class `gameHowToPlay` (RichText) on `game`; the "How to Play"
+  block was migrated out of `game.blocks` into this field and removed from all 12 game nodes (so it no
+  longer renders as a duplicated section).
+- **Delivery API** — `educationalGame` + `educationalGamesFolder` added to `AllowedContentTypeAliases`
+  in `appsettings.json` (base file only; Dev/Prod inherit — do not add a partial array there).
+
+### React work required to make the rest render (hand-off)
+1. **Educational game detail:** add the `/moo-family/games/<slug>` route. Resolve by Delivery API route
+   (`/umbraco/delivery/api/v2/content/item/moo-family/games/<slug>`) or `filter=contentType:educationalGame`
+   + match the node's URL segment (slug is the route segment, **not** a field). Render `eduGameTitle`,
+   `eduGameDescription`, `eduGameCoverImage`, `eduGameIcon`, `eduGameBackgroundColor`, `eduGameHowToPlay`
+   (HTML), `eduGameAgeRange`, `eduGameSkills` (split on `,`), `eduGamePlayUrl`, and `blocks` (same block
+   renderer as `game`).
+2. **Moo Family listing:** the educational section is now an `entityGridSection` (was
+   `educationalGamesSection`). Reuse the same grid renderer as `/games` and `/characters`: auto-source
+   `entityGridEntityType[0] === "educationalGame"`, render the 8 `entityGridFilters` chips, filter by
+   exact label (`eduGameCategory[0] === filterChipValue`, no lowercasing).
+3. **Characters:** bind the new `characterRelatedGames` / `characterRelatedStories` MNTP arrays (link to
+   `/games/<slug>` and `/stories/<slug>`); read category from `characterCategory[0]`.
+4. **Game rules:** read the new `gameHowToPlay` (HTML) instead of the former `how-to-play` block (now
+   removed from `game.blocks`). Same field shape as `eduGameHowToPlay`.
+
+### Parsing notes
+- `Umbraco.DropDown.Flexible` fields return a JSON **array** (`eduGameCategory`, `characterCategory`,
+  `entityGridEntityType`/`SourceMode`/`Layout`) — read `[0]`.
+- New aliases the front-end must handle: `educationalGame`, `educationalGamesFolder`.
