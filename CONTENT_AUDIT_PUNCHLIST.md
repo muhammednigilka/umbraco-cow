@@ -164,3 +164,107 @@ round makes those real in the CMS.
 - `Umbraco.DropDown.Flexible` fields return a JSON **array** (`eduGameCategory`, `characterCategory`,
   `entityGridEntityType`/`SourceMode`/`Layout`) — read `[0]`.
 - New aliases the front-end must handle: `educationalGame`, `educationalGamesFolder`.
+
+---
+
+## Round 4 — Game platform links + News section to match Figma
+
+### Done in the CMS (this round)
+- **`game.gamePlatformLinks`** — new Block List of `gamePlatformLink`
+  (`platformName` governed dropdown, `platformLabel`, `platformUrl`, `platformIcon`). Seeded on all
+  12 games, one row per value already in that game's `gamePlatforms`. `gamePlatforms` is unchanged and
+  remains the filterable taxonomy field; the new Block List is presentation only.
+- **6 platform icons** as media — Epic Games / Apple App Store / Google Play / Browser / PC as
+  `umbracoMediaVectorGraphics`, Steam as a 64px `Image`. New `Icon Media Picker (Image or SVG)`
+  DataType, since the standard `Image Media Picker` filters to the Image type and cannot see SVGs.
+- **`newsArticle`** gained `newsTags`, `newsRelatedArticles` (reuses the existing News Article Content
+  Picker) and `newsBodyBlocks` (heading + coloured-bullet sections + inline images, rendered *after*
+  the `newsBody` rich text).
+- **News categories** — the six Figma categories were **appended** to `News - Category - Dropdown`
+  (now 11). Editors add more in Settings → Data Types; a new save guard blocks removing an item that
+  is still assigned to content. The listing's filter chips were extended to match.
+- **3 Figma articles seeded** — "Guide to Understanding Children Development Stages" (full detail page,
+  5 body sections + inline image), plus the two sidebar "Latest Articles". Tags backfilled on the
+  existing 6 so every card badge in the design has a value.
+- **Delivery API property filtering built** — stock Umbraco only filters on `contentType`/`name`/
+  `createDate`/`updateDate`; everything else 400s. Three handlers in `src/MooFamily.Cms.Web/DeliveryApi/`
+  now make `newsCategory`, `newsTags`, `newsPublishedDate`, `gamePlatforms`, `gameStatus`, `gameGenre`,
+  `gameIsFeatured`, `storyCategory`, `storyTags`, `shortCategory`, `characterCategory` and
+  `eduGameCategory` genuinely queryable. **Requires an Examine index rebuild after deploy.**
+- **Fixed pre-existing drift** — `deploy/apprunner-config.json` was missing
+  `educationalGame` / `educationalGamesFolder` from the Delivery API allowlist (indices 15/16), so
+  educational games were invisible to the API in production.
+
+### 🐞 Found while verifying — Moo Tag's cover image is broken (pre-existing, NOT fixed)
+
+`Media/Moo_Tag_Cover.config` has the key `0eb2aa47-be1d-7d44-9022-1b6469750757` — a **version 7**
+GUID. Umbraco's `IMediaPathScheme` rejects v7 media keys, so the media item fails to import and
+`moo-tag`'s `gameCoverImage` comes back **null** from the Delivery API. Verified locally:
+
+```
+GET /content/item/games/moo-tag/?expand=properties[$all]   -> gameCoverImage: null
+GET /content/item/games/cow-run/?expand=properties[$all]   -> /media/e3b3.../cowrun.webp
+```
+
+Root cause is the same `New-DeterministicGuid` byte-order bug described in
+`scripts/assets/platform-icons/README.md` — `backfill-media.ps1` forces the version nibble into
+`$bytes[6]`, but `[Guid]::new(byte[])` reads Data3 little-endian so the version comes from
+`$bytes[7]`. Of the 28 original media keys, exactly one happened to land on v7.
+
+**Left unfixed — it is a separate defect and needs a decision.** The fix is small:
+1. Change the key in `Media/Moo_Tag_Cover.config` to a v4 value (e.g. `0eb2aa47-be1d-4d44-9022-1b6469750757`
+   — flipping only the version nibble keeps it recognisable).
+2. Leave `umbracoFile`'s `src` pointing at the existing S3 folder so **no binary has to move**.
+3. Update the `mediaKey` in `Content/Home/Games/MooTag.config`'s `gameCoverImage`.
+4. Re-import Content + Media.
+
+### ⏳ Remaining — needs the team
+- **Real store URLs.** Only 2 of 21 platform rows have one: Cow Run → Browser (its details page) and
+  Paintball Madness → PC (its real Steam listing). The other 19 point at `/market`, matching the
+  existing decision for unreleased titles. Replace as each store listing goes live.
+- **Steam icon source.** The design export is a 659×659 base64 PNG wrapped in `<svg>` — not a vector.
+  It is stored as a 64px PNG instead. Drop a genuine vector at
+  `scripts/assets/platform-icons/steam-source.svg` and run
+  `pwsh scripts/backfill-game-platforms.ps1 -RasteriseOnly`, or supply a real `steam.svg` and switch
+  that row to `MediaType='svg'`. **The Steam icon is currently unreferenced** — no game lists Steam
+  in `gamePlatforms` (see the Paintball note below).
+- **Browser / PC icons** are neutral placeholder glyphs drawn in-repo. Replace
+  `scripts/assets/platform-icons/{browser,pc}.svg` with brand assets and re-run the backfill; the
+  media keys do not change.
+- **Two platform/URL contradictions**, deliberately *not* auto-corrected:
+  - Cow Run's `gamePlayUrl` is a Google Play link, but its `gamePlatforms` is `["Browser","PC"]` —
+    Google Play is not listed, so no platform row carries that link.
+  - Paintball Madness ships on **Steam** but its `gamePlatforms` says `["PC"]`. The Steam URL is
+    attached to the PC row. Retagging it would let the Steam badge render.
+- **Hero images for the 3 new articles** reuse existing news heroes so the pages render. Swap in the
+  real Figma exports.
+- **Body copy for sections 3–5** of "Children Development Stages". The Figma repeats section 2's
+  placeholder text verbatim for the last three sections; genuine copy was written instead. Replace
+  with final copy when the content team supplies it.
+- **Sidebar category counts** are derived from the real article count, not the Figma numbers
+  (120 / 100 / 80 / 60 / 110 / 40). Those are design placeholders — there is nowhere to author a count
+  against a dropdown item, and there are 9 articles. Confirm the real numbers are acceptable.
+- **12 filter chips** is a wide row on mobile. Design call.
+- **S3 upload not run.** `scripts/backfill-game-platforms.ps1` was run with `-SkipUpload`, so the repo
+  has the media XML but the binaries are not in S3 yet. Run it without that flag (needs AWS creds)
+  before the icons will resolve.
+
+### Deploy steps for this round
+1. `dotnet build src/MooFamily.Cms.Web` → boot once so uSync imports the **schema** (DataTypes,
+   ContentTypes, MediaTypes import at startup; Content and Media do **not**).
+2. `pwsh scripts/backfill-game-platforms.ps1` (without `-SkipUpload`) to push the 6 icons to S3.
+3. Settings → uSync → Import, **Content and Media handlers only**. Take a DB snapshot first — a full
+   import overwrites anything editors changed live.
+4. Settings → Examine Management → `DeliveryApiContentIndex` → **Rebuild**, otherwise the new property
+   filters match nothing.
+5. `python scripts/validate-usync-json.py` before committing any further content edits.
+
+### Parsing notes
+- `newsTags` is a JSON **array** (`Umbraco.DropDown.Flexible`, multiple) — read the whole array, not `[0]`.
+  Values are stored **without** a leading `#`.
+- `newsBodySectionBarColor` is an **object** `{ value, label }`, not a string — same as
+  `gameInFeatureBackgroundColor`. Both fields hold the hex **without** `#` (e.g. `e4572e`),
+  so read `.value` and prepend `#`.
+- `platformIcon` may be an `Image` **or** a `umbracoMediaVectorGraphics` item. SVGs return
+  `width: null` / `height: null` and ignore ImageSharp resize params — size them in CSS.
+- `newsRelatedArticles` may include the current article; Umbraco's picker cannot exclude self.

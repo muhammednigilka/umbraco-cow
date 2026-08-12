@@ -26,3 +26,7 @@ src/MooFamily.Cms.Web/appsettings.Local.json
 
 # Stray temp files
 UsersMuhammedNigilAppDataLocalTempcow_home.html
+
+# Design export for the Steam badge: a 659x659 base64 PNG in an <svg> wrapper.
+# Only the generated 64px steam.png is committed. See scripts/assets/platform-icons/README.md
+scripts/assets/platform-icons/steam-source.svg

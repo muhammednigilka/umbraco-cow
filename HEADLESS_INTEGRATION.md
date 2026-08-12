@@ -179,8 +179,10 @@ For local dev (e.g. `http://localhost:5173`), ask the maintainer to add your ori
 | Operator | Example | Meaning |
 |---|---|---|
 | `filter=contentType:X` | `filter=contentType:game` | Only items of that content type |
-| `filter=propertyAlias:value` | `filter=gameIsFeatured:true` | Property matches value (string / bool / int) |
-| `filter=name:contains:"x"` | `filter=name:contains:"Cow"` | Substring match (Umbraco docs: `contains`, `startsWith`, `endsWith`) |
+| `filter=name:contains:"x"` | `filter=name:contains:"Cow"` | Substring match (`contains`, `startsWith`, `endsWith`) |
+| `filter=propertyAlias:value` | `filter=gameIsFeatured:true` | Property matches value — **queryable properties only**, see below |
+| `filter=propertyAlias:!value` | `filter=newsCategory:!Events` | Property does *not* match |
+| `filter=propertyAlias:a,b` | `filter=newsTags:Education,Music` | Matches **any** of (OR) |
 | `sort=propertyAlias:asc\|desc` | `sort=newsPublishedDate:desc` | Order results |
 | `take=N` | `take=50` | Page size (default 10, max 100) |
 | `skip=N` | `skip=20` | Skip N items (for pagination) |
@@ -194,6 +196,32 @@ You can chain filters — they're ANDed:
 ```
 
 (Note: `&` in values is URL-encoded as `%26`.)
+
+#### ⚠️ Filtering and sorting on custom properties is project-specific
+
+Out of the box the Delivery API filters on **only** `contentType`, `name`, `createDate` and
+`updateDate`, and sorts on **only** `createDate`, `updateDate`, `name`, `level` and `sortOrder`.
+Anything else returns **HTTP 400** — *"An unsupported filter option was supplied for the query."*
+
+This project adds the missing capability with three handlers in
+`src/MooFamily.Cms.Web/DeliveryApi/`: `ContentPropertyIndexHandler` (puts the properties in the
+Examine index), `PropertyFilterHandler` and `PropertySortHandler`. **Only the properties in
+`QueryablePropertyRegistry` are queryable** — anything else still 400s:
+
+| Property | Filter | Sort |
+|---|---|---|
+| `newsCategory`, `newsTags` | ✅ | — |
+| `newsPublishedDate` | — | ✅ |
+| `gamePlatforms`, `gameStatus`, `gameGenre` | ✅ | — |
+| `gameIsFeatured` | ✅ (`true`/`false`, also accepts `1`/`0`) | — |
+| `storyCategory`, `storyTags` | ✅ | — |
+| `shortCategory` | ✅ | — |
+| `characterCategory` | ✅ | — |
+| `eduGameCategory` | ✅ | — |
+
+To make another property queryable, add it to `QueryablePropertyRegistry.All` — **and rebuild
+the Examine index afterwards** (Settings → Examine Management → `DeliveryApiContentIndex` →
+Rebuild), otherwise the filter matches nothing rather than erroring.
 
 ### Pagination
 
@@ -246,8 +274,14 @@ gameNumPlayers: string             // "Single Player"
 gamePlayUrl: string                // external link
 gameDetailsUrl: string             // canonical page URL
 gameIsFeatured: boolean
+gamePlatformLinks: BlockList       // store badges: one gamePlatformLink per platform (see §11)
 blocks: BlockList                  // detail-page section blocks (see §11); optional, all images optional
 ```
+
+> `gamePlatforms` is the **taxonomy** field — a flat `string[]`, filterable, and what the
+> platform facets query. `gamePlatformLinks` is the **presentation** field — the same platforms
+> with a store URL and an icon so you can render clickable badges. Every `platformName` should
+> also appear in `gamePlatforms`; keep both in sync when editing.
 
 **`story`**
 ```
@@ -268,8 +302,21 @@ newsExcerpt: string
 newsBody: RichText                 // { markup, blocks }
 newsHeroImage: MediaItem[]
 newsPublishedDate: string          // ISO date
-newsCategory: string               // "Stories & Learning" | "Game Updates" | ...
+newsCategory: string               // "Stories & Learning" | "Early Learning" | ...
+newsTags: string[]                 // ["Education", "Parenting"] — card badge + sidebar #hashtags
+newsRelatedArticles: ContentRef[]  // sidebar "Latest Articles"; may be empty
+newsBodyBlocks: BlockList          // optional structured sections, rendered AFTER newsBody
 ```
+
+> **Render order is `newsBody` then `newsBodyBlocks`.** The rich text carries the article intro;
+> the blocks carry the heading + coloured-bullet sections and any inline images.
+>
+> `newsTags` values are stored **without** the leading `#` — prepend it yourself in the sidebar
+> so the same tag can serve as both a card badge and a hashtag.
+>
+> `newsRelatedArticles` can include the current article (Umbraco's picker cannot exclude self),
+> so filter `id !== current.id`. When it is empty, fall back to the most recent articles:
+> `?filter=contentType:newsArticle&sort=newsPublishedDate:desc&take=3`.
 
 **`character`**
 ```
@@ -350,7 +397,7 @@ These appear inside `block.content.contentType`. There are **two families**:
 | Alias | Properties | Used by |
 |---|---|---|
 | `heroCarouselSlide` | `slideKicker, slideTitle, slideAccentColor` | `heroCarouselSection.heroSlides` |
-| `bulletItem` | `bulletText, bulletIcon` | `whatIsCowParadiseSection.whatIsBullets` |
+| `bulletItem` | `bulletText, bulletIcon` | `whatIsCowParadiseSection.whatIsBullets`, `newsBodySection.newsBodySectionBullets` |
 | `filterChip` | `filterChipLabel, filterChipValue` | `entityCarousel/GridSection.*Filters`, `educationalGamesSection.eduGamesCategoryFilters` |
 | `numberedBenefit` | `numberedBenefitNumber, numberedBenefitTitle, numberedBenefitDescription` | `numberedBenefitsSection.numberedBenefitsItems` |
 | `iconBenefit` | `iconBenefitIcon, iconBenefitTitle, iconBenefitDescription` | `centerImageBenefitsSection.centerImgBenefitsItems` |
@@ -359,6 +406,8 @@ These appear inside `block.content.contentType`. There are **two families**:
 | `statBlock` | `statValue, statLabel, statIcon` | `whatIsCowParadiseSection.whatIsStats`, `headingStatsSection.headingStatsItems` |
 | `logoStripItem` | `logoName, logoImage, logoUrl` | `poweredBySection.poweredByLogos` |
 | `accordionItem` | `accordionTitle, accordionContent` | `imageAccordionSection.imageAccordionItems` |
+| `gamePlatformLink` | `platformName, platformLabel, platformUrl, platformIcon` | `game.gamePlatformLinks` |
+| `newsBodySection` | `newsBodySectionHeading, newsBodySectionIntro, newsBodySectionBullets: BlockList<bulletItem>, newsBodySectionBarColor` | `newsArticle.newsBodyBlocks` |
 
 **B. Primitive blocks** (still allowed on `standardPage` for one-off cases; the Home + 7 menu pages use section blocks instead):
 
@@ -474,9 +523,38 @@ Team grid fetch: `GET /content?filter=contentType:teamMember&take={maxItems}&exp
 | # | Section block | Renders | Entity refs |
 |---|---|---|---|
 | 1 | `pageHeroSection` | "Cow Paradise News & Updates" hero | — |
-| 2 | `entityGridSection` | "All News Updates" + 6 category chips (All / Game Updates / Stories & Learning / Events / Community / Rewards) + news cards grid | `newsArticle` (auto, max=24) |
+| 2 | `entityGridSection` | "All News Updates" + 12 category chips + news cards grid | `newsArticle` (auto, max=24) |
 
-Selected chip's value becomes a server-side filter: `GET /content?filter=contentType:newsArticle&filter=newsCategory:{value}&take={maxItems}&sort=newsPublishedDate:desc&expand=properties[$all]`. When the chip value is `all`, omit the `newsCategory` filter.
+Selected chip's value becomes a server-side filter (see the queryable-property table in §3):
+
+```
+GET /content?filter=contentType:newsArticle&filter=newsCategory:{value}
+    &take={maxItems}&sort=newsPublishedDate:desc&expand=properties[$all]
+```
+
+When the chip value is `all`, omit the `newsCategory` filter.
+
+**Card badge** is `newsTags[0]` (the Figma shows one badge per card); the full array drives the
+detail-page hashtag cloud.
+
+#### Article detail sidebar
+
+| Sidebar block | Source |
+|---|---|
+| Search | `GET /content?filter=contentType:newsArticle&filter=name:contains:"{term}"&expand=properties[$all]`. `name` search is built into the Delivery API — no custom handler needed. |
+| Latest Articles | `newsRelatedArticles` when set, else `?filter=contentType:newsArticle&sort=newsPublishedDate:desc&take=3`. Filter out the current article either way. |
+| Categories with counts | One cheap request per category: `?filter=contentType:newsArticle&filter=newsCategory:{c}&take=1`, then read **`total`** from the response body. Get the category list from the chips on this page. |
+| Article Tags | Distinct `newsTags` values, `#` prepended. Link to `?filter=newsTags:{tag}`. |
+
+> ⚠️ Use `take=1`, **not** `take=0`. Umbraco short-circuits a zero-take query and returns
+> `total: 0` regardless of how many items match. There is also **no `Total-Count` header** on the
+> Delivery API — `CorsComposer` exposes that header for other callers, but the Delivery API puts
+> the count in the body. Verified against the running site.
+
+> The counts in the Figma (120 / 100 / 80 / 60 / 110 / 40) are **design placeholders**. There is
+> nowhere to author a count against a dropdown item, so the sidebar renders the real number of
+> articles per category — currently 2 for Stories & Learning, 1 for each other used category, and
+> 0 for Science Exploration / School Events / Teacher Features.
 
 ### 4a.7 Market — `GET /content/item/market/`
 
@@ -740,8 +818,16 @@ export interface GameProperties {
   gamePlayUrl: string;
   gameDetailsUrl: string;
   gameIsFeatured: boolean;
+  gamePlatformLinks: BlockList<GamePlatformLink> | null;
 }
 export type Game = ContentItem<GameProperties>;
+
+export interface GamePlatformLink {
+  platformName: string;        // "Steam" | "Epic Games" | "Apple App Store" | "Google Play" | "Browser" | "PC"
+  platformLabel: string;       // "Get it on Google Play" — may be empty, fall back to platformName
+  platformUrl: string;         // "/market" until the store listing is live
+  platformIcon: MediaItem[] | null;
+}
 
 export interface StoryProperties {
   storyTitle: string;
@@ -761,8 +847,20 @@ export interface NewsArticleProperties {
   newsHeroImage: MediaItem[] | null;
   newsPublishedDate: string;
   newsCategory: string;
+  newsTags: string[];
+  newsRelatedArticles: ContentRef[] | null;
+  newsBodyBlocks: BlockList<NewsBodySection | ImageBlock | RichTextBlock> | null;
 }
 export type NewsArticle = ContentItem<NewsArticleProperties>;
+
+export interface NewsBodySection {
+  newsBodySectionHeading: string;
+  newsBodySectionIntro: string;              // may contain newlines
+  newsBodySectionBullets: BlockList<BulletItem> | null;
+  // Umbraco.ColorPicker returns an OBJECT, not a string — same as gameInFeatureBackgroundColor.
+  // Both fields hold the hex WITHOUT a leading '#', e.g. { value: "e4572e", label: "e4572e" }.
+  newsBodySectionBarColor: { value: string; label: string } | null;
+}
 
 export interface CharacterProperties {
   characterName: string;
@@ -1009,6 +1107,32 @@ The CMS serves images through ImageSharp. You can request resized versions by ap
 ```
 
 Supported params: `width`, `height`, `format` (`webp`, `jpg`, `png`), `quality` (1–100), `rmode` (`crop`, `pad`, `max`).
+
+### ⚠️ SVG media behaves differently
+
+The platform store badges (`gamePlatformLink.platformIcon`) are `umbracoMediaVectorGraphics`
+items, not `Image` items. Three consequences:
+
+| | `Image` | `umbracoMediaVectorGraphics` |
+|---|---|---|
+| `mediaType` in the API | `"Image"` | `"umbracoMediaVectorGraphics"` |
+| `width` / `height` | real numbers | **`0`** — Umbraco has no SVG dimension extractor |
+| ImageSharp params | honoured | **ignored** — `?width=48` does nothing |
+
+So size SVG icons in CSS, never from `imageItem.width` — a `width={0}` attribute collapses the
+icon:
+
+```tsx
+<img src={mediaUrl(icon)} alt="" width={28} height={28} />   // explicit, not from the API
+```
+
+The icon set is deliberately mixed: Steam ships as a 64px PNG (`Image`) because the design
+export was a 659×659 raster wrapped in an `<svg>`, which would have shipped ~110–530 KB on
+every game card with no resizing. The other five are true vectors. Both types come through the
+same property, so branch on `mediaType` only if you need to.
+
+S3 must serve SVGs as `Content-Type: image/svg+xml` — `scripts/backfill-game-platforms.ps1`
+sets this on upload. If a badge renders as a broken image, check the header first.
 
 ### Focal point
 
@@ -1452,6 +1576,24 @@ export function GameDetail() {
         <dt>Players</dt><dd>{p.gameNumPlayers}</dd>
         <dt>Platforms</dt><dd>{p.gamePlatforms.join(", ")}</dd>
       </dl>
+
+      {/* Store badges — icon + label per platform. Falls back to nothing when unset. */}
+      <ul className="platform-links">
+        {p.gamePlatformLinks?.items.map(({ content }) => {
+          const l = content.properties;
+          const icon = l.platformIcon?.[0];
+          return (
+            <li key={content.id}>
+              <a href={l.platformUrl} target="_blank" rel="noreferrer">
+                {/* SVG icons have width/height null — size them in CSS, not from the API */}
+                {icon && <img src={icon.url} alt="" width={28} height={28} />}
+                <span>{l.platformLabel || l.platformName}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+
       {p.gamePlayUrl && (
         <a href={p.gamePlayUrl} className="btn btn--primary" target="_blank" rel="noreferrer">
           Play now
@@ -1484,10 +1626,46 @@ export function NewsDetail() {
         <p className="lead">{p.newsExcerpt}</p>
         <img src={mediaUrl(p.newsHeroImage)} alt={p.newsTitle} />
       </header>
+
+      {/* Rich text first, then the structured sections — that order is the contract. */}
       <RichTextView value={p.newsBody} />
+
+      {p.newsBodyBlocks?.items.map(({ content }) => {
+        if (content.contentType === "newsBodySection") {
+          const s = content.properties as NewsBodySection;
+          return (
+            <section key={content.id}>
+              <h2>{s.newsBodySectionHeading}</h2>
+              {s.newsBodySectionIntro
+                .split("\n")
+                .map((line, i) => <p key={i}>{line}</p>)}
+              <ul style={{ borderLeftColor: `#${s.newsBodySectionBarColor?.value ?? "b5a642"}` }}>
+                {s.newsBodySectionBullets?.items.map(b => (
+                  <li key={b.content.id}>{b.content.properties.bulletText}</li>
+                ))}
+              </ul>
+            </section>
+          );
+        }
+        if (content.contentType === "imageBlock") {
+          const i = content.properties as ImageBlock;
+          return <img key={content.id} src={mediaUrl(i.image)} alt={i.altText} />;
+        }
+        return <RichTextView key={content.id} value={content.properties.content} />;
+      })}
+
+      <ul className="tags">
+        {p.newsTags.map(t => <li key={t}>#{t.replace(/\s+/g, "")}</li>)}
+      </ul>
     </article>
   );
 }
+```
+
+The coloured left bar is CSS — the API only supplies the colour:
+
+```css
+.news-body ul { border-left: 4px solid; padding-left: 1rem; }
 ```
 
 #### Single story (with YouTube embed)
@@ -2226,12 +2404,37 @@ Each sample below is a real response from the deployed CMS at 2026-05-29.
       "gameNumPlayers": "Single Player",
       "gamePlayUrl": "https://play.google.com/store/apps/...",
       "gameDetailsUrl": "https://cowparadisegames.com/games/cow-run",
-      "gameIsFeatured": true
+      "gameIsFeatured": true,
+      "gamePlatformLinks": {
+        "items": [{
+          "content": {
+            "id": "fb000001-0001-0000-0000-000000000001",
+            "contentType": "gamePlatformLink",
+            "properties": {
+              "platformName": "Browser",
+              "platformLabel": "Play in Browser",
+              "platformUrl": "https://cowparadisegames.com/games/cow-run",
+              "platformIcon": [{
+                "id": "3b839eb0-f467-094e-8f8d-936a0312f4e6",
+                "name": "Browser Platform Icon",
+                "mediaType": "umbracoMediaVectorGraphics",
+                "url": "/media/3b839eb0f46749ae8f8d936a0312f4e6/browser.svg",
+                "extension": "svg",
+                "width": 0, "height": 0, "bytes": 529,
+                "properties": {}
+              }]
+            }
+          },
+          "settings": null
+        }]
+      }
     },
     "cultures": {}
   }]
 }
 ```
+
+> Note `width` / `height` are `null` on the SVG icon — see §9.
 
 ### Homepage `/content/item/`
 

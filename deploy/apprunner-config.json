@@ -42,7 +42,9 @@
           "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__11": "newsFolder",
           "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__12": "charactersFolder",
           "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__13": "teamFolder",
-          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__14": "shortsFolder"
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__14": "shortsFolder",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__15": "educationalGame",
+          "Umbraco__CMS__DeliveryApi__AllowedContentTypeAliases__16": "educationalGamesFolder"
         },
         "RuntimeEnvironmentSecrets": {
           "ConnectionStrings__umbracoDbDSN": "arn:aws:secretsmanager:us-east-1:423623846645:secret:moofamily/umbraco/connection-string-uGrTa1",
