@@ -191,9 +191,13 @@ round makes those real in the CMS.
   now make `newsCategory`, `newsTags`, `newsPublishedDate`, `gamePlatforms`, `gameStatus`, `gameGenre`,
   `gameIsFeatured`, `storyCategory`, `storyTags`, `shortCategory`, `characterCategory` and
   `eduGameCategory` genuinely queryable. **Requires an Examine index rebuild after deploy.**
-- **Fixed pre-existing drift** — `deploy/apprunner-config.json` was missing
-  `educationalGame` / `educationalGamesFolder` from the Delivery API allowlist (indices 15/16), so
-  educational games were invisible to the API in production.
+- **Synced `deploy/apprunner-config.json`** — it was missing `educationalGame` /
+  `educationalGamesFolder` (indices 15/16) that `appsettings.json` has.
+  **This was *not* a live bug**, contrary to the initial read: .NET config providers overlay
+  per-key, so the env vars only override indices 0–14 and 15/16 still come from `appsettings.json`.
+  Verified against production after deploy — `?filter=contentType:educationalGame` returns
+  **8 items**. The file is a documentation mirror, so it is now accurate, but no
+  `aws apprunner update-service` is needed.
 
 ### 🐞 Found while verifying — Moo Tag's cover image is broken (pre-existing, NOT fixed)
 
@@ -249,15 +253,45 @@ Root cause is the same `New-DeterministicGuid` byte-order bug described in
   has the media XML but the binaries are not in S3 yet. Run it without that flag (needs AWS creds)
   before the icons will resolve.
 
-### Deploy steps for this round
-1. `dotnet build src/MooFamily.Cms.Web` → boot once so uSync imports the **schema** (DataTypes,
-   ContentTypes, MediaTypes import at startup; Content and Media do **not**).
-2. `pwsh scripts/backfill-game-platforms.ps1` (without `-SkipUpload`) to push the 6 icons to S3.
-3. Settings → uSync → Import, **Content and Media handlers only**. Take a DB snapshot first — a full
-   import overwrites anything editors changed live.
-4. Settings → Examine Management → `DeliveryApiContentIndex` → **Rebuild**, otherwise the new property
-   filters match nothing.
-5. `python scripts/validate-usync-json.py` before committing any further content edits.
+### Deploy status (as at commit `e8728a4`)
+
+| Step | State |
+|---|---|
+| Icons uploaded to S3 (`image/svg+xml`) | ✅ done — 5 of 6; Steam skipped, no source vector |
+| Pushed to `master`, cms-deploy workflow | ✅ succeeded |
+| App Runner rolled out the new image | ✅ succeeded |
+| **Schema** live in production | ✅ `gamePlatformLinks`, `newsTags`, `newsRelatedArticles`, `newsBodyBlocks` all present on the production doctypes |
+| Custom filter/sort handlers live | ✅ `?filter=newsCategory:Events` → 200 (was 400); unregistered `gameTitle` still 400s |
+| **Content + Media import** | ⛔ **not done — needs a decision, see below** |
+| Examine index rebuild | ⛔ not done — needed before `newsTags` / `gamePlatforms` filters return rows |
+
+### ⚠️ Production content has diverged badly from the repo — read before importing
+
+Live production vs `uSync/v17/Content/`:
+
+| Type | Live | Repo | Delta |
+|---|---|---|---|
+| `game` | **3** (Cow Run, Moo Rash, Paintball Madness) | 12 | +9 |
+| `newsArticle` | **5** | 9 | +4 |
+| `educationalGame` | 8 | 8 | — |
+| `story` | 8 | 8 | — |
+| `character` | 8 | 8 | — |
+
+A full uSync Content import would **create 9 games and 4 news articles** in production and
+**overwrite** whatever editors have changed on the 3 live games and 5 live articles. That is a
+large content change, not a schema top-up. Until it runs, `gamePlatformLinks` is `null` on every
+live game and the new news fields are empty — the schema is there, the values are not.
+
+Recommended order when you do run it:
+1. Snapshot the production database.
+2. Settings → uSync → Import, **Content and Media handlers only** (never a full import).
+3. Settings → Examine Management → `DeliveryApiContentIndex` → **Rebuild**.
+4. Re-check `?filter=contentType:game&filter=gamePlatforms:Browser` returns rows.
+
+If the 9 missing games were deliberately removed, do **not** import Content — instead delete them
+from `uSync/v17/Content/Home/Games/` so the repo stops disagreeing with production.
+
+`python scripts/validate-usync-json.py` before committing any further content edits.
 
 ### Parsing notes
 - `newsTags` is a JSON **array** (`Umbraco.DropDown.Flexible`, multiple) — read the whole array, not `[0]`.
