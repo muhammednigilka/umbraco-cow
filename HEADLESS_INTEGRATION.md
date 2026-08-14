@@ -408,6 +408,7 @@ These appear inside `block.content.contentType`. There are **two families**:
 | `accordionItem` | `accordionTitle, accordionContent` | `imageAccordionSection.imageAccordionItems` |
 | `gamePlatformLink` | `platformName, platformLabel, platformUrl, platformIcon` | `game.gamePlatformLinks` |
 | `newsBodySection` | `newsBodySectionHeading, newsBodySectionIntro, newsBodySectionBullets: BlockList<bulletItem>, newsBodySectionBarColor` | `newsArticle.newsBodyBlocks` |
+| `mediaGallerySection` | `mediaGallerySectionId, mediaGalleryHeading, mediaGallerySubheading, mediaGalleryLayout` (`grid`\|`carousel`\|`masonry`), `mediaGalleryItems: BlockList<imageBlock\|videoBlock\|youTubeBlock>` | shared `blocks` palette (`character`, `standardPage`, `game`, `story`, `educationalGame`) |
 
 **B. Primitive blocks** (still allowed on `standardPage` for one-off cases; the Home + 7 menu pages use section blocks instead):
 
@@ -420,10 +421,10 @@ These appear inside `block.content.contentType`. There are **two families**:
 | `timelineItem` | Timeline entry | `timelineYear, timelineTitle, timelineDescription, timelineIcon` |
 | `bulletList` | Bullets via `MultipleTextstring` | `bulletListTitle, bulletItems: string[]` |
 | `ctaBlock` | Single CTA | `label, url, style, openInNewTab` |
-| `imageBlock` | Single image | `image, altText, caption` |
-| `videoBlock` | Embedded video | `videoUrl, videoPosterImage, videoCaption` |
-| `youtubeBlock` | YouTube embed | `youtubeUrl` |
-| `playstoreBlock` | Play Store badge | `playStoreUrl` |
+| `imageBlock` | Single image | `image, altText, caption, alignment` (`left`\|`center`\|`right`) |
+| `videoBlock` | Embedded video | `videoUrl` (**required**), `videoPosterImage, videoCaption` |
+| `youTubeBlock` | YouTube embed | `videoUrlOrId, caption` |
+| `playStoreBlock` | Play Store badge | `label, playStoreUrl, showQrCode` |
 | `newsletterSignup` | Signup form | `newsletterTitle, newsletterDescription, newsletterCtaLabel, newsletterPlaceholder` |
 | `logoStrip` | Logo carousel | `logoStripTitle, logoStripItems: BlockList<logoStripItem>` |
 
@@ -862,12 +863,37 @@ export interface NewsBodySection {
   newsBodySectionBarColor: { value: string; label: string } | null;
 }
 
+export interface AccordionItem {
+  accordionTitle: string;
+  accordionContent: RichText;
+}
+
 export interface CharacterProperties {
   characterName: string;
   characterRole: string;
   characterImage: MediaItem[] | null;
   characterDescription: string;
-  characterAccentColor: string;
+  // Umbraco.ColorPicker returns an OBJECT, not a string — same as newsBodySectionBarColor.
+  // The hex has NO leading '#'. With useLabel:false, `label` mirrors `value`.
+  characterAccentColor: { value: string; label: string } | null;
+  characterCategory: string;              // DropDown.Flexible — "Moo Family" | "Cow Paradise"
+  characterTraits: string;                // comma-separated — split on ','
+  characterPersonality: string;
+  characterTakeaway: string;              // the "Children learn that…" line
+
+  // "<Name> Adventures" — heading + intro above the related-games carousel
+  characterAdventuresHeading: string;
+  characterAdventuresSubheading: string;
+  characterRelatedGames: ContentItem[] | null;    // link to /games/<slug>
+  characterRelatedStories: ContentItem[] | null;  // link to /stories/<slug>
+
+  // "Learn with <Name>" — side image + heading + intro + accordion
+  characterLearnHeading: string;
+  characterLearnImage: MediaItem[] | null;
+  characterLearnIntro: string;
+  characterLearnPoints: BlockList<AccordionItem> | null;
+
+  blocks: BlockList | null;               // shared section palette (incl. mediaGallerySection)
 }
 export type Character = ContentItem<CharacterProperties>;
 
@@ -2087,6 +2113,7 @@ export const BLOCK_REGISTRY: Record<string, React.FC<any>> = {
   imageOverlayBannerSection:     ImageOverlayBannerSection,
   headingStatsSection:           HeadingStatsSection,
   imageAccordionSection:         ImageAccordionSection,
+  mediaGallerySection:           MediaGallerySection,
 
   // Moo Family-specific sections
   mooFamilyCharacterHeroSection: MooFamilyCharacterHeroSection,

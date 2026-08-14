@@ -293,7 +293,7 @@ from `uSync/v17/Content/Home/Games/` so the repo stops disagreeing with producti
 
 `python scripts/validate-usync-json.py` before committing any further content edits.
 
-### Parsing notes
+### Parsing notes (Round 4)
 - `newsTags` is a JSON **array** (`Umbraco.DropDown.Flexible`, multiple) — read the whole array, not `[0]`.
   Values are stored **without** a leading `#`.
 - `newsBodySectionBarColor` is an **object** `{ value, label }`, not a string — same as
@@ -302,3 +302,80 @@ from `uSync/v17/Content/Home/Games/` so the repo stops disagreeing with producti
 - `platformIcon` may be an `Image` **or** a `umbracoMediaVectorGraphics` item. SVGs return
   `width: null` / `height: null` and ignore ImageSharp resize params — size them in CSS.
 - `newsRelatedArticles` may include the current article; Umbraco's picker cannot exclude self.
+
+---
+
+## Round 5 — Media gallery block + the remaining character-page gaps
+
+**Why:** the character detail design (Daddy Moo) has four sections, and the CMS could only author
+two-and-a-half of them. There was **no media gallery anywhere on characters**, the *"Daddy Moo
+Adventures"* section had a games picker but nowhere to author its heading or intro copy, the
+*"Learn with Daddy Moo"* section had no heading and no side image, and `characterAccentColor` — which
+drives the green hero band — was free text and empty on all 12 characters.
+
+### Done in the CMS (this round)
+
+- **New `mediaGallerySection` section block** (`f4a00034-…-000000000034`) added to the **shared
+  page-blocks palette** `481e3d5b`, so it is available in the `blocks` property of `character`,
+  `standardPage`, `game`, `story` **and** `educationalGame`. Fields: `mediaGallerySectionId`,
+  `mediaGalleryHeading`, `mediaGallerySubheading`, `mediaGalleryLayout` (governed dropdown:
+  `grid` / `carousel` / `masonry`), and `mediaGalleryItems` — a Block List whose items are the
+  existing `imageBlock`, `videoBlock` and `youTubeBlock` element types, so one gallery mixes
+  images, hosted/mp4 video and YouTube. **Every field is optional on purpose** — blanking a
+  mandatory field silently fails the whole node's publish on import.
+- **`Game Gallery - Block List` renamed to `Media Gallery - Items - Block List`** and reused rather
+  than duplicated. The Key (`d2b00020-…-000000000020`) is unchanged, so `game.gameGallery` keeps
+  working untouched — it now just shares the palette with the new section.
+- **4 new `character` fields** — `characterAdventuresHeading`, `characterAdventuresSubheading`
+  (the Adventures section's heading + intro), `characterLearnHeading` and `characterLearnImage`
+  (the Learn section's heading + side image, a different pose from the hero portrait).
+  Property sort order was renumbered so the backoffice reads in page order.
+- **`characterAccentColor` is now a governed colour picker** (new
+  `Character - Accent Color - Color Picker`, `d2b00023-…`, 8 brand swatches incl. the design's
+  `a9dd6b` Meadow Green). It was `Umbraco.TextBox`; the value was empty on all 12 nodes so there was
+  nothing to migrate. **The API shape changed** — see the parsing note below.
+- **Daddy Moo seeded as the worked example** — accent colour, both new headings, the Adventures
+  intro, `characterRelatedGames` = Moo Ski / Cow Run / Moo Dash, and one `mediaGallerySection` with
+  three items (two `youTubeBlock`s using real IDs already in the repo, one `imageBlock` with its
+  media left empty). **The other 11 characters are untouched** — copy Daddy Moo when authoring them.
+
+**Verified locally** (boot + full uSync import + Delivery API): `blocks[0]` returns
+`mediaGallerySection` with 3 gallery items; `characterRelatedGames` resolves to the 3 game routes;
+`characterAccentColor` returns `{"value":"a9dd6b","label":"a9dd6b"}`; all four new aliases are on the
+doctype. Regression-checked the shared-palette change against `game`, `standardPage`,
+`educationalGame` and `charactersFolder` — every existing `blocks` value still deserializes.
+No new import errors (the count stays at the pre-existing 1).
+
+### ⏳ Remaining — needs the team
+
+- **The three Adventures games are an editorial placeholder.** Moo Ski / Cow Run / Moo Dash were
+  picked to fill the three cards in the design. Repoint them in the backoffice to the games Daddy Moo
+  actually appears in.
+- **`characterLearnImage` and the gallery's `imageBlock.image` are empty** — media binaries do not
+  travel through the repo. Upload in the backoffice.
+- **The other 11 characters** have none of the new fields authored, and all 12 still have an empty
+  `characterImage` / `characterRole`.
+
+### React work required to make this render (hand-off)
+
+1. **`mediaGallerySection`** — add one entry to `BLOCK_REGISTRY`. Switch each item on
+   `mediaGalleryItems.items[].content.contentType`: `imageBlock` → `<img>`, `videoBlock` → poster +
+   `<video>`, `youTubeBlock` → an iframe built from `videoUrlOrId` (accepts a bare ID **or** a full
+   URL, so run it through a `youTubeId()` regex). Honour `mediaGalleryLayout`.
+2. **Character detail** — read `characterAdventuresHeading` / `characterAdventuresSubheading` above
+   the related-games carousel, and `characterLearnHeading` / `characterLearnImage` in the Learn
+   section, instead of hardcoding `"<Name> Adventures"` / `"Learn with <Name>"`.
+3. **`characterAccentColor`** — was a string, is now an object.
+
+### Parsing notes (Round 5)
+- `characterAccentColor` is an **object** `{ value, label }`, hex **without** `#` (e.g. `a9dd6b`) —
+  read `.value` and prepend `#`. Same shape as `newsBodySectionBarColor` and
+  `gameInFeatureBackgroundColor`. With `useLabel:false` the `label` mirrors the value, so don't
+  display it.
+- `mediaGalleryLayout` is `Umbraco.DropDown.Flexible`. It is stored in content as the JSON array
+  `["grid"]`, but the Delivery API converter unwraps it — the API returns the plain string `"grid"`.
+  Treat an empty value as `grid`.
+- `youTubeBlock`'s property is **`videoUrlOrId`** (not `youtubeUrl`) and the alias is `youTubeBlock`
+  with a capital T. The §11 table in `HEADLESS_INTEGRATION.md` had both wrong; it is now corrected.
+- `videoBlock.videoUrl` is **mandatory** — never seed a `videoBlock` with an empty URL, it silently
+  fails the parent node's publish.
